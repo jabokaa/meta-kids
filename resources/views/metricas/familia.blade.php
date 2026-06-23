@@ -32,7 +32,7 @@
 .mr-mood     { font-size:28px; flex-shrink:0; line-height:1; margin-top:2px; }
 .mr-body     { flex:1; min-width:0; }
 .mr-desc     { font-family:'Baloo 2',sans-serif; font-weight:700; font-size:15px; color:#3D2B1A; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.mr-stars    { font-size:16px; letter-spacing:1px; margin-bottom:5px; line-height:1; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.mr-stars    { font-size:16px; letter-spacing:1px; margin-bottom:5px; line-height:1; display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-height:22px; }
 .mr-streak   { font-size:11px; font-weight:700; color:#EA580C; padding:1px 8px; border-radius:20px; background:#FFF7ED; border:1.5px solid #FDBA74; }
 .mr-track    { height:10px; background:#F0EDE9; border-radius:99px; overflow:hidden; margin-bottom:4px; }
 .mr-fill     { height:100%; border-radius:99px; transition:width .9s cubic-bezier(.17,.67,.45,1.5); }
@@ -121,38 +121,28 @@ function moodOf(pct) {
   return           {emoji:'😢', cor:'#EF4444', bg:'linear-gradient(135deg,#FFF1F2,#fff)', lbl:'Atenção!'};
 }
 
-// Retorna { count, pct } onde pct é relativo ao ritmo esperado desde data_inicio
+// Retorna { count, pct } usando o período atual de metas_em_andamento
 function calcOnTrackPct(registros, meta) {
-  const now   = new Date(); now.setHours(0,0,0,0);
-  const inicio = new Date((meta.data_inicio||'').substring(0,10)+'T00:00:00');
-  inicio.setHours(0,0,0,0);
+  const now      = new Date(); now.setHours(0,0,0,0);
+  const todayIso = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+  const target   = meta.valor_meta || 1;
 
-  let periodStart, periodEnd, daysTotal;
+  const periodos      = meta.periodos || [];
+  const currentPeriod = periodos.find(p => todayIso >= p.data_inicio && todayIso <= p.data_fim);
 
-  if (meta.tipo === 'semanal') {
-    const daysSince = Math.max(0, Math.floor((now - inicio) / 86400000));
-    const periodNum  = Math.floor(daysSince / 7);
-    periodStart = new Date(inicio); periodStart.setDate(periodStart.getDate() + periodNum * 7);
-    periodEnd   = new Date(periodStart); periodEnd.setDate(periodEnd.getDate() + 6);
-    daysTotal   = 7;
-  } else {
-    const y = now.getFullYear(), m = now.getMonth();
-    const mesInicio = new Date(y, m, 1);
-    periodStart = inicio > mesInicio ? inicio : mesInicio;
-    periodEnd   = new Date(y, m+1, 0);
-    daysTotal   = new Date(y, m+1, 0).getDate();
-  }
+  if (!currentPeriod) return { count: 0, pct: 0 };
 
-  const count = registros.filter(r => {
-    const d = new Date(r.data.substring(0,10)+'T00:00:00');
-    return d >= periodStart && d <= periodEnd;
-  }).length;
+  const count = currentPeriod.contador;
 
-  const daysElapsed  = Math.floor((now - periodStart) / 86400000) + 1;
-  const target       = meta.valor_meta || 1;
-  const expectedNow  = (daysElapsed / daysTotal) * target;
-  const pct = expectedNow > 0
-    ? Math.min(100, Math.round((count / expectedNow) * 100))
+  if (currentPeriod.concluida) return { count, pct: 100 };
+
+  const pStart    = new Date(currentPeriod.data_inicio + 'T00:00:00');
+  const pEnd      = new Date(currentPeriod.data_fim    + 'T00:00:00');
+  const daysTotal = Math.round((pEnd - pStart) / 86400000) + 1;
+  const daysElap  = Math.floor((now  - pStart) / 86400000) + 1;
+  const expected  = (daysElap / daysTotal) * target;
+  const pct = expected > 0
+    ? Math.min(100, Math.round((count / expected) * 100))
     : (count > 0 ? 100 : 0);
 
   return { count, pct };

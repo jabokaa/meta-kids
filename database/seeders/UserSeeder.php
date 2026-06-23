@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Crianca;
 use App\Models\CriancaMeta;
 use App\Models\User;
+use App\Services\MetaPeriodoService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -35,7 +36,7 @@ class UserSeeder extends Seeder
             'estilo'          => 3,
         ]);
 
-        CriancaMeta::create([
+        $metaAna = CriancaMeta::create([
             'crianca_id'     => $ana->id,
             'descricao'      => 'Leitura diária',
             'metas'          => 'Ler pelo menos 15 minutos por dia',
@@ -45,8 +46,9 @@ class UserSeeder extends Seeder
             'valor_meta'     => 5,
             'maximo_por_dia' => 2,
         ]);
+        MetaPeriodoService::gerar($metaAna);
 
-        CriancaMeta::create([
+        $metaPedro = CriancaMeta::create([
             'crianca_id'     => $pedro->id,
             'descricao'      => 'Arrumar o quarto',
             'metas'          => 'Arrumar o quarto todos os dias',
@@ -56,5 +58,6 @@ class UserSeeder extends Seeder
             'valor_meta'     => 7,
             'maximo_por_dia' => 3,
         ]);
+        MetaPeriodoService::gerar($metaPedro);
     }
 }

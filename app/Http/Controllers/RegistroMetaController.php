@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\CriancaMeta;
-use App\Models\MetaEmAndamento;
 use App\Models\RegistroMeta;
+use App\Services\MetaPeriodoService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,35 +16,6 @@ class RegistroMetaController extends Controller
         abort_if($meta->crianca->user_id !== Auth::id(), 403);
     }
 
-    // Retorna [data_inicio, data_fim] do período que contém $date
-    private function periodoBounds(CriancaMeta $meta, string $date): array
-    {
-        $inicio = Carbon::parse($meta->data_inicio)->startOfDay();
-        $dia    = Carbon::parse($date)->startOfDay();
-        $len    = $meta->tipo === 'semanal' ? 7 : 30;
-        $num    = (int) floor(max(0, $inicio->diffInDays($dia)) / $len);
-
-        $pStart = $inicio->copy()->addDays($num * $len);
-        $pEnd   = $pStart->copy()->addDays($len - 1);
-
-        return [$pStart->toDateString(), $pEnd->toDateString()];
-    }
-
-    // Recalcula o período afetado a partir dos registros reais
-    private function syncPeriodo(CriancaMeta $meta, string $date): void
-    {
-        [$pStart, $pEnd] = $this->periodoBounds($meta, $date);
-
-        $count = $meta->registros()
-            ->whereBetween('data', [$pStart, $pEnd])
-            ->count();
-
-        MetaEmAndamento::updateOrCreate(
-            ['meta_id' => $meta->id, 'data_inicio' => $pStart],
-            ['data_fim' => $pEnd, 'contador' => $count, 'concluida' => $count >= $meta->valor_meta]
-        );
-    }
-
     private function validateDate(CriancaMeta $meta, string $date): ?array
     {
         $day  = Carbon::parse($date)->startOfDay();
@@ -54,7 +25,7 @@ class RegistroMetaController extends Controller
             if (!$day->eq($hoje)) {
                 return ['error' => 'Esta meta só permite registros para hoje.'];
             }
-        } elseif ($day->gt($hoje) || $day->lt($hoje->copy()->subDays(2))) {
+        } elseif ($day->gt($hoje) || $day->lt($hoje->copy()->subDays(3))) {
             return ['error' => 'Apenas os últimos 3 dias são permitidos.'];
         }
 
@@ -94,7 +65,7 @@ class RegistroMetaController extends Controller
         }
 
         $registro = $meta->registros()->create($data);
-        $this->syncPeriodo($meta, $data['data']);
+        MetaPeriodoService::sincronizar($meta, $data['data']);
 
         return response()->json($registro, 201);
     }
@@ -124,11 +95,9 @@ class RegistroMetaController extends Controller
         }
 
         $registro->update(['data' => $newIso]);
-
-        // Sincroniza ambos os períodos se mudou de período
-        $this->syncPeriodo($meta, $newIso);
+        MetaPeriodoService::sincronizar($meta, $newIso);
         if ($oldIso !== $newIso) {
-            $this->syncPeriodo($meta, $oldIso);
+            MetaPeriodoService::sincronizar($meta, $oldIso);
         }
 
         return response()->json($registro->fresh());
@@ -141,7 +110,7 @@ class RegistroMetaController extends Controller
 
         $date = $registro->data->toDateString();
         $registro->delete();
-        $this->syncPeriodo($meta, $date);
+        MetaPeriodoService::sincronizar($meta, $date);
 
         return response()->noContent();
     }

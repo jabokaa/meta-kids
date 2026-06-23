@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Crianca;
 use App\Models\CriancaMeta;
+use App\Services\MetaPeriodoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -31,7 +32,10 @@ class MetaController extends Controller
             'bloquear_dias_anteriores' => ['boolean'],
         ]);
 
-        return $crianca->metas()->create($data);
+        $meta = $crianca->metas()->create($data);
+        MetaPeriodoService::gerar($meta);
+
+        return $meta;
     }
 
     public function update(Request $request, CriancaMeta $meta)
@@ -51,6 +55,7 @@ class MetaController extends Controller
         ]);
 
         $meta->update($data);
+        MetaPeriodoService::gerar($meta->fresh());
 
         return $meta->fresh();
     }

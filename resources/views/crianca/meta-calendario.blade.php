@@ -199,7 +199,7 @@ function isAllowed(iso) {
   const t = todayDate().getTime();
   const d = isoToDate(iso).getTime();
   const diff = (t - d) / 86400000;
-  return diff >= 0 && diff <= 2;
+  return diff >= 0 && diff <= 3;
 }
 function regsOnDate(iso)   { return registros.filter(r => r.data.substring(0,10) === iso); }
 function isAtMax(iso)      { return meta && meta.maximo_por_dia && regsOnDate(iso).length >= meta.maximo_por_dia; }
@@ -219,6 +219,11 @@ async function loadMeta() {
 async function loadRegistros() {
   const r = await fetch(`/api/metas/${META_ID}/registros`, {headers:{'X-Requested-With':'XMLHttpRequest'}});
   registros = await r.json();
+}
+
+async function loadPeriodos() {
+  const r = await fetch(`/api/metas/${META_ID}/periodos`, {headers:{'X-Requested-With':'XMLHttpRequest'}});
+  meta.periodos = await r.json();
 }
 
 async function createRegistro(iso, icone) {
@@ -242,7 +247,7 @@ async function moveRegistro(id, iso) {
 
 async function deleteRegistro(id) {
   await fetch(`/api/registros/${id}`, {method:'DELETE', headers:hdrs()});
-  await loadRegistros();
+  await Promise.all([loadRegistros(), loadPeriodos()]);
   renderGrid();
   renderProgress();
 }
@@ -335,44 +340,34 @@ function renderProgress() {
   const el = document.getElementById('mh-progress');
   if (!el || !meta) return;
 
-  const now = todayDate();
+  const now      = todayDate();
+  const todayIso = toISO(now);
+  const target   = meta.valor_meta || 1;
+  const total    = registros.length;
 
-  const inicio = isoToDate((meta.data_inicio || toISO(now)).substring(0,10));
+  // Usa os períodos pré-gerados (metas_em_andamento) como fonte da verdade
+  const periodos      = meta.periodos || [];
+  const currentPeriod = periodos.find(p => todayIso >= p.data_inicio && todayIso <= p.data_fim);
 
-  let periodStart, daysTotal, periodLabel;
+  let periodRegs = 0, pct = 0;
+  const periodLabel = meta.tipo === 'semanal' ? 'esta semana' : 'este período';
 
-  if (meta.tipo === 'semanal') {
-    // Período de 7 dias alinhado a data_inicio
-    const daysSince = Math.max(0, Math.floor((now - inicio) / 86400000));
-    const periodNum  = Math.floor(daysSince / 7);
-    periodStart = addDays(inicio, periodNum * 7);
-    daysTotal   = 7;
-    periodLabel = 'esta semana';
-  } else {
-    // Mês calendário, mas começa em data_inicio se for neste mês
-    const y = now.getFullYear(), m = now.getMonth();
-    const mesInicio = new Date(y, m, 1);
-    periodStart = inicio > mesInicio ? inicio : mesInicio;
-    daysTotal   = new Date(y, m + 1, 0).getDate();
-    periodLabel = 'este mês';
+  if (currentPeriod) {
+    periodRegs = currentPeriod.contador;
+
+    if (currentPeriod.concluida) {
+      pct = 100;
+    } else {
+      const pStart    = isoToDate(currentPeriod.data_inicio);
+      const pEnd      = isoToDate(currentPeriod.data_fim);
+      const daysTotal = Math.round((pEnd - pStart) / 86400000) + 1;
+      const daysElap  = Math.floor((now - pStart) / 86400000) + 1;
+      const expected  = (daysElap / daysTotal) * target;
+      pct = expected > 0
+        ? Math.min(100, Math.round((periodRegs / expected) * 100))
+        : (periodRegs > 0 ? 100 : 0);
+    }
   }
-
-  const periodEnd = meta.tipo === 'semanal'
-    ? addDays(periodStart, 6)
-    : new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-  const periodRegs = registros.filter(r => {
-    const d = isoToDate(r.data.substring(0,10));
-    return d >= periodStart && d <= periodEnd;
-  }).length;
-
-  const target      = meta.valor_meta || 1;
-  const daysElapsed = Math.floor((now - periodStart) / 86400000) + 1;
-  const expectedByNow = (daysElapsed / daysTotal) * target;
-  const pct = expectedByNow > 0
-    ? Math.min(100, Math.round((periodRegs / expectedByNow) * 100))
-    : (periodRegs > 0 ? 100 : 0);
-  const total  = registros.length;
 
   let mood, cor, bg, bgTotal;
   if (pct >= 100) {
@@ -387,8 +382,7 @@ function renderProgress() {
     mood='😢'; cor='#EF4444'; bg='linear-gradient(135deg,#FFF1F2 0%,#fff 80%)'; bgTotal='#FFF1F2';
   }
 
-  // Período history
-  const periodos       = meta.periodos || [];
+  // Período history (periodos já declarado acima)
   const completedCount = periodos.filter(p => p.concluida).length;
   const periodLen      = meta.tipo === 'semanal' ? 7 : 30;
   const streak         = calcStreak(periodos, periodLen);
@@ -538,7 +532,7 @@ function makeCell(iso, currentMonth) {
 
       if (newId !== null) {
         animateId = newId;
-        await loadRegistros();
+        await Promise.all([loadRegistros(), loadPeriodos()]);
         renderGrid();
         renderProgress();
         // Burst na célula após re-render
@@ -625,6 +619,8 @@ function navNext() {
   try {
     await Promise.all([loadMeta(), loadRegistros()]);
     if (!meta) { showToast('Meta não encontrada'); return; }
+    // periodos já vêm no meta via eager loading; garante atualização posterior
+    if (!meta.periodos) meta.periodos = [];
     renderHeader();
     renderPalette();
     renderGrid();

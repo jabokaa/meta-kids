@@ -21,6 +21,11 @@ class MetaEmAndamento extends Model
         ];
     }
 
+    protected function serializeDate(\DateTimeInterface $date): string
+    {
+        return $date->format('Y-m-d');
+    }
+
     public function meta(): BelongsTo
     {
         return $this->belongsTo(CriancaMeta::class, 'meta_id');

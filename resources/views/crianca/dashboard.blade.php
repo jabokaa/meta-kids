@@ -44,6 +44,11 @@
 
   .empty-metas   { text-align:center; padding:50px 20px; background:#fff; border-radius:28px; box-shadow:0 4px 20px rgba(180,120,60,.1); border:2px dashed #F0E2C8; }
 
+  /* estrelas de metas cumpridas */
+  .meta-stars       { display:flex; align-items:center; gap:6px; margin-top:8px; flex-wrap:wrap; }
+  .meta-stars-icons { font-size:15px; letter-spacing:1px; line-height:1; }
+  .meta-stars-label { font-size:11px; font-weight:700; color:#B07A45; background:#FFF8F0; padding:2px 8px; border-radius:20px; border:1.5px solid #F0E2C8; }
+
   #content { display:none; }
 </style>
 @endpush
@@ -122,25 +127,41 @@ function getId() {
   return m ? m[1] : null;
 }
 
-function progressInfo(cumpridas, total) {
-  const pct = total > 0 ? Math.min(100, Math.round((cumpridas / total) * 100)) : 0;
+// Usa o período atual de metas_em_andamento — mesma lógica do calendário
+function calcProgress(meta) {
+  const now      = new Date(); now.setHours(0,0,0,0);
+  const todayIso = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+  const target   = meta.valor_meta || 1;
 
-  let cor, bonequinho, label;
-  if (pct >= 80) {
-    cor = '#22C55E';
-    bonequinho = '😄';
-    label = 'Arrasando!';
-  } else if (pct >= 50) {
-    cor = '#F59E0B';
-    bonequinho = '😐';
-    label = 'Quase lá!';
-  } else {
-    cor = '#EF4444';
-    bonequinho = '😢';
-    label = 'Vamos lá!';
+  const periodos     = Array.isArray(meta.periodos) ? meta.periodos : [];
+  const currentPer   = periodos.find(p => todayIso >= p.data_inicio && todayIso <= p.data_fim);
+
+  let periodRegs = 0, pct = 0;
+
+  if (currentPer) {
+    periodRegs = currentPer.contador;
+    if (currentPer.concluida) {
+      pct = 100;
+    } else {
+      const pStart    = new Date(currentPer.data_inicio + 'T00:00:00');
+      const pEnd      = new Date(currentPer.data_fim    + 'T00:00:00');
+      const daysTotal = Math.round((pEnd - pStart) / 86400000) + 1;
+      const daysElap  = Math.floor((now  - pStart) / 86400000) + 1;
+      const expected  = (daysElap / daysTotal) * target;
+      pct = expected > 0
+        ? Math.min(100, Math.round((periodRegs / expected) * 100))
+        : (periodRegs > 0 ? 100 : 0);
+    }
   }
 
-  return { pct, cor, bonequinho, label };
+  let cor, bonequinho, label;
+  if      (pct >= 100) { cor='#22C55E'; bonequinho='😄'; label='Arrasando!'; }
+  else if (pct >=  70) { cor='#34D399'; bonequinho='😊'; label='Muito bem!'; }
+  else if (pct >=  40) { cor='#F59E0B'; bonequinho='😐'; label='Quase lá!'; }
+  else if (pct >=  15) { cor='#FB923C'; bonequinho='😟'; label='Vamos melhorar!'; }
+  else                 { cor='#EF4444'; bonequinho='😢'; label='Vamos lá!'; }
+
+  return { pct, cor, bonequinho, label, periodRegs };
 }
 
 async function load() {
@@ -155,22 +176,8 @@ async function load() {
       fetch(`/api/criancas/${id}/metas`, { headers }).then(r => r.json()),
     ]);
 
-    const metasArr = Array.isArray(metas) ? metas : [];
-
-    const registrosPorMeta = await Promise.all(
-      metasArr.map(m =>
-        fetch(`/api/metas/${m.id}/registros`, { headers })
-          .then(r => r.json())
-          .then(regs => ({ metaId: m.id, count: Array.isArray(regs) ? regs.length : 0 }))
-          .catch(() => ({ metaId: m.id, count: 0 }))
-      )
-    );
-
-    const contagemMap = {};
-    registrosPorMeta.forEach(r => { contagemMap[r.metaId] = r.count; });
-
     renderCrianca(crianca);
-    renderMetas(metasArr, crianca, contagemMap);
+    renderMetas(Array.isArray(metas) ? metas : [], crianca);
   } catch (e) {
     console.error(e);
   } finally {
@@ -203,29 +210,33 @@ function renderCrianca(c) {
   if (idade) document.getElementById('crianca-idade').textContent = '🎂 ' + idade;
 }
 
-function renderMetas(metas, crianca, contagemMap) {
-  const est    = getEstilo(crianca.estilo || 1);
-  const list   = document.getElementById('metas-list');
-  const empty  = document.getElementById('empty-metas');
-  const badge  = document.getElementById('metas-badge');
+function renderMetas(metas, crianca) {
+  const est   = getEstilo(crianca.estilo || 1);
+  const list  = document.getElementById('metas-list');
+  const empty = document.getElementById('empty-metas');
+  const badge = document.getElementById('metas-badge');
 
   badge.textContent = `${metas.length} meta${metas.length === 1 ? '' : 's'}`;
 
   if (metas.length === 0) { empty.style.display = 'block'; return; }
 
   metas.forEach((m, i) => {
-    const isSemanal  = m.tipo === 'semanal';
-    const cumpridas  = contagemMap[m.id] || 0;
-    const total      = m.valor_meta || 1;
-    const { pct, cor, bonequinho, label } = progressInfo(cumpridas, total);
+    const isSemanal = m.tipo === 'semanal';
+    const target    = m.valor_meta || 1;
+    const { pct, cor, bonequinho, label, periodRegs } = calcProgress(m);
+
+    const periodos       = Array.isArray(m.periodos) ? m.periodos : [];
+    const completedCount = periodos.filter(p => p.concluida).length;
+    const starsMax       = 10;
+    const starsShow      = Math.min(completedCount, starsMax);
+    const starsStr       = '⭐'.repeat(starsShow) + (completedCount > starsMax ? ` +${completedCount - starsMax}` : '');
+    const periodLabel    = isSemanal ? 'esta semana' : 'este período';
 
     const card = document.createElement('a');
     card.className = 'meta-card';
     card.href = `/crianca/${crianca.id}/meta/${m.id}`;
     card.style.borderLeftColor = cor;
     card.style.animationDelay  = `${i * 0.06}s`;
-
-    const periodo = fmtData(m.data_inicio) + (m.data_fim ? ` → ${fmtData(m.data_fim)}` : ' → ∞');
 
     card.innerHTML = `
       <div class="meta-icon" style="background:${est.soft};box-shadow:inset 0 0 0 2px ${est.color};">
@@ -243,11 +254,16 @@ function renderMetas(metas, crianca, contagemMap) {
               <div class="progress-fill" style="width:${pct}%;background:${cor};"></div>
             </div>
             <div class="progress-labels">
-              <span class="progress-pct" style="color:${cor};">${pct}%</span>
-              <span class="progress-count">✅ ${cumpridas} de ${total} ${total === 1 ? 'vez' : 'vezes'}</span>
+              <span class="progress-pct" style="color:${cor};">${pct}% do ritmo</span>
+              <span class="progress-count">${periodRegs}/${target} ${periodLabel}</span>
             </div>
           </div>
         </div>
+        ${completedCount > 0 ? `
+        <div class="meta-stars">
+          <span class="meta-stars-icons">${starsStr}</span>
+          <span class="meta-stars-label">${completedCount} período${completedCount !== 1 ? 's' : ''} completo${completedCount !== 1 ? 's' : ''}</span>
+        </div>` : ''}
       </div>`;
 
     list.appendChild(card);
