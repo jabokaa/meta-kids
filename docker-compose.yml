@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # PHP FPM Service
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: meta-kids-php
+    restart: always
+    working_dir: /app
+    volumes:
+      - ./:/app
+      - ./docker/php/php.ini:/usr/local/etc/php/conf.d/custom.ini
+    networks:
+      - meta-kids-network
+    environment:
+      - APP_ENV=local
+      - APP_DEBUG=true
+      - APP_KEY=base64:6pdROvPNHlDnv2uyH7BhiUi5J96JKD6RcdEx+3zqE4E=
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=meta_kids
+      - DB_USERNAME=meta_kids_user
+      - DB_PASSWORD=meta_kids_password
+    depends_on:
+      - mysql
+
+  # MySQL Service
+  mysql:
+    image: mysql:8.0
+    container_name: meta-kids-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: meta_kids
+      MYSQL_USER: meta_kids_user
+      MYSQL_PASSWORD: meta_kids_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - meta-kids-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # Nginx Service
+  nginx:
+    image: nginx:alpine
+    container_name: meta-kids-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./:/app
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d
+      - ./storage/logs:/var/log/nginx
+    networks:
+      - meta-kids-network
+    depends_on:
+      - php
+
+networks:
+  meta-kids-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local
