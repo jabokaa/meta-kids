@@ -171,21 +171,6 @@ let dragData   = null;
 let animateId  = null;
 
 // ── helpers ───────────────────────────────────────────────────────
-function calcStreak(periodos, periodLen) {
-  const done = [...periodos]
-    .filter(p => p.concluida)
-    .sort((a, b) => b.data_inicio.localeCompare(a.data_inicio));
-  if (!done.length) return 0;
-  let s = 1;
-  for (let i = 1; i < done.length; i++) {
-    const prev = new Date(done[i-1].data_inicio + 'T00:00:00');
-    const curr = new Date(done[i].data_inicio  + 'T00:00:00');
-    if (Math.round((prev - curr) / 86400000) === periodLen) s++;
-    else break;
-  }
-  return s;
-}
-
 function todayDate()       { const d = new Date(); d.setHours(0,0,0,0); return d; }
 function addDays(d, n)     { const r = new Date(d); r.setDate(r.getDate()+n); return r; }
 function toISO(d)          { return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
@@ -340,49 +325,15 @@ function renderProgress() {
   const el = document.getElementById('mh-progress');
   if (!el || !meta) return;
 
-  const now      = todayDate();
-  const todayIso = toISO(now);
   const target   = meta.valor_meta || 1;
   const total    = registros.length;
+  const periodos = meta.periodos || [];
 
-  // Usa os períodos pré-gerados (metas_em_andamento) como fonte da verdade
-  const periodos      = meta.periodos || [];
-  const currentPeriod = periodos.find(p => todayIso >= p.data_inicio && todayIso <= p.data_fim);
-
-  let periodRegs = 0, pct = 0;
+  const { count: periodRegs, pct } = calcPeriodoPct(meta);
+  const { emoji: mood, cor, bg, bgSoft: bgTotal } = moodOf(pct);
   const periodLabel = meta.tipo === 'semanal' ? 'esta semana' : 'este período';
 
-  if (currentPeriod) {
-    periodRegs = currentPeriod.contador;
-
-    if (currentPeriod.concluida) {
-      pct = 100;
-    } else {
-      const pStart    = isoToDate(currentPeriod.data_inicio);
-      const pEnd      = isoToDate(currentPeriod.data_fim);
-      const daysTotal = Math.round((pEnd - pStart) / 86400000) + 1;
-      const daysElap  = Math.floor((now - pStart) / 86400000) + 1;
-      const expected  = (daysElap / daysTotal) * target;
-      pct = expected > 0
-        ? Math.min(100, Math.round((periodRegs / expected) * 100))
-        : (periodRegs > 0 ? 100 : 0);
-    }
-  }
-
-  let mood, cor, bg, bgTotal;
-  if (pct >= 100) {
-    mood='😄'; cor='#22C55E'; bg='linear-gradient(135deg,#D1FAE5 0%,#fff 80%)'; bgTotal='#ECFDF5';
-  } else if (pct >= 70) {
-    mood='😊'; cor='#34D399'; bg='linear-gradient(135deg,#ECFDF5 0%,#fff 80%)'; bgTotal='#F0FDF4';
-  } else if (pct >= 40) {
-    mood='😐'; cor='#F59E0B'; bg='linear-gradient(135deg,#FFFBEB 0%,#fff 80%)'; bgTotal='#FFFBEB';
-  } else if (pct >= 15) {
-    mood='😟'; cor='#FB923C'; bg='linear-gradient(135deg,#FFF7ED 0%,#fff 80%)'; bgTotal='#FFF7ED';
-  } else {
-    mood='😢'; cor='#EF4444'; bg='linear-gradient(135deg,#FFF1F2 0%,#fff 80%)'; bgTotal='#FFF1F2';
-  }
-
-  // Período history (periodos já declarado acima)
+  // Período history
   const completedCount = periodos.filter(p => p.concluida).length;
   const periodLen      = meta.tipo === 'semanal' ? 7 : 30;
   const streak         = calcStreak(periodos, periodLen);

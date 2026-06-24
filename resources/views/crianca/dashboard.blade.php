@@ -44,6 +44,16 @@
 
   .empty-metas   { text-align:center; padding:50px 20px; background:#fff; border-radius:28px; box-shadow:0 4px 20px rgba(180,120,60,.1); border:2px dashed #F0E2C8; }
 
+  /* status geral */
+  .status-geral  { border-radius:24px; padding:20px 22px; margin-bottom:28px; box-shadow:0 4px 20px rgba(180,120,60,.1); display:flex; align-items:center; gap:18px; transition:background .4s ease; }
+  .sg-emoji      { font-size:56px; line-height:1; flex-shrink:0; animation:floaty 3s ease-in-out infinite; }
+  .sg-info       { flex:1; min-width:0; }
+  .sg-titulo     { font-size:12px; font-weight:700; color:#8A6A45; text-transform:uppercase; letter-spacing:1px; margin:0 0 4px; }
+  .sg-label      { font-family:'Baloo 2',sans-serif; font-weight:800; font-size:22px; margin:0 0 6px; }
+  .sg-track      { height:12px; background:#F0EDE9; border-radius:99px; overflow:hidden; margin-bottom:4px; }
+  .sg-fill       { height:100%; border-radius:99px; transition:width .9s cubic-bezier(.17,.67,.45,1.5); }
+  .sg-pct        { font-size:13px; font-weight:700; }
+
   /* estrelas de metas cumpridas */
   .meta-stars       { display:flex; align-items:center; gap:6px; margin-top:8px; flex-wrap:wrap; }
   .meta-stars-icons { font-size:15px; letter-spacing:1px; line-height:1; }
@@ -78,6 +88,8 @@
       <h1 class="crianca-nome" id="crianca-nome"></h1>
       <p class="crianca-idade" id="crianca-idade"></p>
     </div>
+
+    <div id="status-geral"></div>
 
     <div class="metas-header">
       <div class="metas-titulo">🎯 Minhas Metas</div>
@@ -127,40 +139,9 @@ function getId() {
   return m ? m[1] : null;
 }
 
-// Usa o período atual de metas_em_andamento — mesma lógica do calendário
 function calcProgress(meta) {
-  const now      = new Date(); now.setHours(0,0,0,0);
-  const todayIso = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
-  const target   = meta.valor_meta || 1;
-
-  const periodos     = Array.isArray(meta.periodos) ? meta.periodos : [];
-  const currentPer   = periodos.find(p => todayIso >= p.data_inicio && todayIso <= p.data_fim);
-
-  let periodRegs = 0, pct = 0;
-
-  if (currentPer) {
-    periodRegs = currentPer.contador;
-    if (currentPer.concluida) {
-      pct = 100;
-    } else {
-      const pStart    = new Date(currentPer.data_inicio + 'T00:00:00');
-      const pEnd      = new Date(currentPer.data_fim    + 'T00:00:00');
-      const daysTotal = Math.round((pEnd - pStart) / 86400000) + 1;
-      const daysElap  = Math.floor((now  - pStart) / 86400000) + 1;
-      const expected  = (daysElap / daysTotal) * target;
-      pct = expected > 0
-        ? Math.min(100, Math.round((periodRegs / expected) * 100))
-        : (periodRegs > 0 ? 100 : 0);
-    }
-  }
-
-  let cor, bonequinho, label;
-  if      (pct >= 100) { cor='#22C55E'; bonequinho='😄'; label='Arrasando!'; }
-  else if (pct >=  70) { cor='#34D399'; bonequinho='😊'; label='Muito bem!'; }
-  else if (pct >=  40) { cor='#F59E0B'; bonequinho='😐'; label='Quase lá!'; }
-  else if (pct >=  15) { cor='#FB923C'; bonequinho='😟'; label='Vamos melhorar!'; }
-  else                 { cor='#EF4444'; bonequinho='😢'; label='Vamos lá!'; }
-
+  const { count: periodRegs, pct } = calcPeriodoPct(meta);
+  const { emoji: bonequinho, cor, lbl: label } = moodOf(pct);
   return { pct, cor, bonequinho, label, periodRegs };
 }
 
@@ -210,6 +191,32 @@ function renderCrianca(c) {
   if (idade) document.getElementById('crianca-idade').textContent = '🎂 ' + idade;
 }
 
+function renderStatusGeral(metas) {
+  const wrap = document.getElementById('status-geral');
+  if (!metas.length) return;
+
+  const pctMedia = Math.round(metas.reduce((sum, m) => sum + calcProgress(m).pct, 0) / metas.length);
+  const { emoji, cor, bg, lbl: label } = moodOf(pctMedia);
+
+  wrap.innerHTML = `
+    <div class="status-geral" style="background:${bg};border-left:6px solid ${cor};">
+      <div class="sg-emoji">${emoji}</div>
+      <div class="sg-info">
+        <div class="sg-titulo">📊 Status Geral</div>
+        <div class="sg-label" style="color:${cor};">${label}</div>
+        <div class="sg-track">
+          <div class="sg-fill" style="width:0%;background:${cor};" data-pct="${pctMedia}"></div>
+        </div>
+        <div class="sg-pct" style="color:${cor};">${pctMedia}% de conclusão no ritmo</div>
+      </div>
+    </div>`;
+
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const fill = wrap.querySelector('.sg-fill');
+    if (fill) fill.style.width = fill.dataset.pct + '%';
+  }));
+}
+
 function renderMetas(metas, crianca) {
   const est   = getEstilo(crianca.estilo || 1);
   const list  = document.getElementById('metas-list');
@@ -219,6 +226,7 @@ function renderMetas(metas, crianca) {
   badge.textContent = `${metas.length} meta${metas.length === 1 ? '' : 's'}`;
 
   if (metas.length === 0) { empty.style.display = 'block'; return; }
+  renderStatusGeral(metas);
 
   metas.forEach((m, i) => {
     const isSemanal = m.tipo === 'semanal';

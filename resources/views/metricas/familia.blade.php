@@ -90,21 +90,6 @@ const ESTILOS = {
 const H = {'X-Requested-With':'XMLHttpRequest'};
 
 // ── Helpers ───────────────────────────────────────────────────────
-function calcStreak(periodos, periodLen) {
-  const done = [...periodos]
-    .filter(p => p.concluida)
-    .sort((a, b) => b.data_inicio.localeCompare(a.data_inicio));
-  if (!done.length) return 0;
-  let s = 1;
-  for (let i = 1; i < done.length; i++) {
-    const prev = new Date(done[i-1].data_inicio + 'T00:00:00');
-    const curr = new Date(done[i].data_inicio  + 'T00:00:00');
-    if (Math.round((prev - curr) / 86400000) === periodLen) s++;
-    else break;
-  }
-  return s;
-}
-
 function toISO(d) {
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
@@ -112,41 +97,6 @@ function fmtDia(iso) { const p=iso.split('-'); return `${p[2]}/${p[1]}`; }
 function addDays(d,n){ const r=new Date(d); r.setDate(r.getDate()+n); return r; }
 function startOfWeek(d){ const r=new Date(d); r.setHours(0,0,0,0); r.setDate(r.getDate()-r.getDay()); return r; }
 function calcIdade(iso){ if(!iso) return null; const h=new Date(),n=new Date(iso+'T00:00:00'); let a=h.getFullYear()-n.getFullYear(); const m=h.getMonth()-n.getMonth(); if(m<0||(m===0&&h.getDate()<n.getDate())) a--; return a<0?null:a; }
-
-function moodOf(pct) {
-  if (pct>=100) return {emoji:'😄', cor:'#22C55E', bg:'linear-gradient(135deg,#D1FAE5,#fff)', lbl:'Incrível! 🎉'};
-  if (pct>= 70) return {emoji:'😊', cor:'#34D399', bg:'linear-gradient(135deg,#ECFDF5,#fff)', lbl:'Muito bem!'};
-  if (pct>= 40) return {emoji:'😐', cor:'#F59E0B', bg:'linear-gradient(135deg,#FFFBEB,#fff)', lbl:'Mais ou menos'};
-  if (pct>= 15) return {emoji:'😟', cor:'#FB923C', bg:'linear-gradient(135deg,#FFF7ED,#fff)', lbl:'Precisa melhorar'};
-  return           {emoji:'😢', cor:'#EF4444', bg:'linear-gradient(135deg,#FFF1F2,#fff)', lbl:'Atenção!'};
-}
-
-// Retorna { count, pct } usando o período atual de metas_em_andamento
-function calcOnTrackPct(registros, meta) {
-  const now      = new Date(); now.setHours(0,0,0,0);
-  const todayIso = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
-  const target   = meta.valor_meta || 1;
-
-  const periodos      = meta.periodos || [];
-  const currentPeriod = periodos.find(p => todayIso >= p.data_inicio && todayIso <= p.data_fim);
-
-  if (!currentPeriod) return { count: 0, pct: 0 };
-
-  const count = currentPeriod.contador;
-
-  if (currentPeriod.concluida) return { count, pct: 100 };
-
-  const pStart    = new Date(currentPeriod.data_inicio + 'T00:00:00');
-  const pEnd      = new Date(currentPeriod.data_fim    + 'T00:00:00');
-  const daysTotal = Math.round((pEnd - pStart) / 86400000) + 1;
-  const daysElap  = Math.floor((now  - pStart) / 86400000) + 1;
-  const expected  = (daysElap / daysTotal) * target;
-  const pct = expected > 0
-    ? Math.min(100, Math.round((count / expected) * 100))
-    : (count > 0 ? 100 : 0);
-
-  return { count, pct };
-}
 
 function starsHTML(count, total, cor) {
   const cap    = Math.min(total, 10);
@@ -192,7 +142,7 @@ function renderCrianca(c, delay) {
   // Calcula progresso médio desta criança (relativo ao ritmo esperado)
   let sumPct = 0, countMetas = c.metas.length;
   c.metas.forEach(m => {
-    sumPct += calcOnTrackPct(m.registros, m).pct;
+    sumPct += calcPeriodoPct(m).pct;
   });
   const mediaPct = countMetas ? Math.round(sumPct / countMetas) : 0;
   const mood     = moodOf(mediaPct);
@@ -248,7 +198,7 @@ function renderCrianca(c, delay) {
     metasList.innerHTML = `<p style="text-align:center;color:#C7A77C;font-size:14px;padding:12px 0;margin:0;">Nenhuma meta cadastrada</p>`;
   } else {
     c.metas.forEach(m => {
-      const { count: cnt, pct } = calcOnTrackPct(m.registros, m);
+      const { count: cnt, pct } = calcPeriodoPct(m);
       const mm     = moodOf(pct);
       const isSem  = m.tipo === 'semanal';
       const periodLabel = isSem ? 'esta semana' : 'este mês';
@@ -300,7 +250,7 @@ function renderFamiliaScore(criancas) {
   let sumAll = 0, countAll = 0;
   criancas.forEach(c => {
     c.metas.forEach(m => {
-      sumAll += calcOnTrackPct(m.registros, m).pct;
+      sumAll += calcPeriodoPct(m).pct;
       countAll++;
     });
   });

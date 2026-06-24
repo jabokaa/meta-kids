@@ -60,6 +60,7 @@
 
   @yield('content')
 
+  <script src="/meta-kids-helpers.js"></script>
   @stack('scripts')
 </body>
 </html>
