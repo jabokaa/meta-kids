@@ -27,7 +27,7 @@
 
 /* ── Meta row ───────────────────────────────────── */
 .fc-divider  { height:2px; background:#F0E2C8; border-radius:99px; margin:0 0 14px; }
-.meta-row    { display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1.5px dashed #F0E2C8; }
+.meta-row    { display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1.5px dashed #F0E2C8; cursor:pointer; transition:background .15s; border-radius:10px; }
 .meta-row:last-child { border-bottom:none; padding-bottom:0; }
 .mr-mood     { font-size:28px; flex-shrink:0; line-height:1; margin-top:2px; }
 .mr-body     { flex:1; min-width:0; }
@@ -211,11 +211,11 @@ function renderCrianca(c, delay) {
     : est.emoji;
 
   card.innerHTML = `
-    <div class="fc-header">
-      <div class="fc-avatar" style="background:${est.soft};box-shadow:0 4px 14px ${est.color}44;">
+    <div class="fc-header" style="cursor:default;">
+      <div class="fc-avatar fc-nav-crianca" style="background:${est.soft};box-shadow:0 4px 14px ${est.color}44;cursor:pointer;">
         ${avatarContent}
       </div>
-      <div>
+      <div class="fc-nav-crianca" style="cursor:pointer;flex:1;">
         <div class="fc-nome">${c.nome} ${idadeStr}</div>
         <div class="fc-media" style="color:${mood.cor};">Média ${mediaPct}% ${mood.lbl}</div>
       </div>
@@ -223,9 +223,24 @@ function renderCrianca(c, delay) {
         <span class="fc-mood-emoji">${mood.emoji}</span>
         <div class="fc-mood-lbl" style="color:${mood.cor};">${mediaPct}%</div>
       </div>
+      <div class="fc-chevron" style="margin-left:10px;font-size:20px;color:#B07A45;transition:transform .25s;cursor:pointer;padding:4px 6px;">▾</div>
     </div>
-    <div class="fc-divider"></div>
-    <div class="fc-metas-list"></div>`;
+    <div class="fc-collapsible" style="display:none;">
+      <div class="fc-divider"></div>
+      <div class="fc-metas-list"></div>
+    </div>`;
+
+  const collapsible = card.querySelector('.fc-collapsible');
+  const chevron     = card.querySelector('.fc-chevron');
+  chevron.style.transform = 'rotate(-90deg)';
+  chevron.addEventListener('click', () => {
+    const open = collapsible.style.display !== 'none';
+    collapsible.style.display = open ? 'none' : '';
+    chevron.style.transform   = open ? 'rotate(-90deg)' : '';
+  });
+  card.querySelectorAll('.fc-nav-crianca').forEach(el => {
+    el.addEventListener('click', () => { window.location.href = `/crianca/${c.id}`; });
+  });
 
   const metasList = card.querySelector('.fc-metas-list');
 
@@ -249,6 +264,10 @@ function renderCrianca(c, delay) {
 
       const row = document.createElement('div');
       row.className = 'meta-row';
+      row.style.cursor = 'pointer';
+      row.addEventListener('click', () => { window.location.href = `/crianca/${c.id}/meta/${m.id}`; });
+      row.addEventListener('mouseenter', () => { row.style.background = 'rgba(0,0,0,.04)'; });
+      row.addEventListener('mouseleave', () => { row.style.background = ''; });
       row.innerHTML = `
         <div class="mr-mood">${mm.emoji}</div>
         <div class="mr-body">
