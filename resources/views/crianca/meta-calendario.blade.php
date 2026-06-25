@@ -171,7 +171,7 @@ let dragData   = null;
 let animateId  = null;
 
 // ── helpers ───────────────────────────────────────────────────────
-function todayDate()       { const d = new Date(); d.setHours(0,0,0,0); return d; }
+function todayDate()       { return logicalToday(); }
 function addDays(d, n)     { const r = new Date(d); r.setDate(r.getDate()+n); return r; }
 function toISO(d)          { return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
 function pad(n)            { return String(n).padStart(2,'0'); }

@@ -1,7 +1,15 @@
 // Helpers compartilhados entre as views do Meta Kids
 
+// O dia lógico vira às 03:00 — antes disso ainda é "ontem"
+function logicalToday() {
+  const d = new Date();
+  d.setTime(d.getTime() - 3 * 60 * 60 * 1000);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 function calcPeriodoPct(meta) {
-  const now = new Date(); now.setHours(0,0,0,0);
+  const now = logicalToday();
   const todayIso = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
   const target   = meta.valor_meta || 1;
   const periodos = Array.isArray(meta.periodos) ? meta.periodos : [];
