@@ -17,6 +17,8 @@
 .mh-tags   { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
 .mh-tag    { font-size:12px; font-weight:700; padding:3px 10px; border-radius:20px; }
 .mh-max    { font-size:12px; font-weight:600; color:#8A6A45; }
+.mh-del-btn { font-family:'Fredoka',sans-serif; font-size:13px; font-weight:600; color:#E2547F; padding:5px 14px; border:1.5px solid #FFBDD0; border-radius:20px; background:#FFF0F4; cursor:pointer; transition:all .15s; white-space:nowrap; }
+.mh-del-btn:hover { background:#E2547F; color:#fff; border-color:#E2547F; }
 
 /* ── Progresso ─────────────────────────────────── */
 .mh-divider     { height:2px; background:#F0E2C8; border-radius:99px; margin:14px 0; }
@@ -305,7 +307,7 @@ function renderHeader() {
       <div class="mh-icon" style="background:${cor}22;border:2px solid ${cor};">
         ${isSem ? '📅' : '🗓️'}
       </div>
-      <div>
+      <div style="flex:1;min-width:0;">
         <div class="mh-desc">${meta.descricao}</div>
         <div class="mh-tags">
           <span class="mh-tag" style="background:${cor};color:#fff;">${isSem?'Semanal':'Mensal'}</span>
@@ -315,9 +317,20 @@ function renderHeader() {
           ${meta.bloquear_dias_anteriores ? '<span class="mh-tag" style="background:#FFF0F4;color:#E2547F;border:1.5px solid #FFBDD0;">🔒 Somente hoje</span>' : ''}
         </div>
       </div>
+      <button class="mh-del-btn" id="btn-del-meta">🗑️ Deletar</button>
     </div>
     <div class="mh-divider"></div>
     <div id="mh-progress"></div>`;
+
+  document.getElementById('btn-del-meta').addEventListener('click', async () => {
+    if (!confirm(`Deletar a meta "${meta.descricao}"?\nEsta ação não pode ser desfeita.`)) return;
+    const csrf = document.querySelector('meta[name="csrf-token"]').content;
+    const r = await fetch(`/api/metas/${meta.id}`, {
+      method: 'DELETE',
+      headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': csrf },
+    });
+    if (r.ok) window.location.href = `/crianca/${CRIANCA_ID}`;
+  });
 }
 
 // ── Progresso da meta ─────────────────────────────────────────────

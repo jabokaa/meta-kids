@@ -44,6 +44,8 @@
 .mr-total    { font-size:11px; font-weight:600; color:#B07A45; }
 .mr-link-btn { font-size:11px; font-weight:700; color:#E2547F; padding:2px 8px; border:1.5px solid #FFBDD0; border-radius:20px; background:#FFF0F4; text-decoration:none; white-space:nowrap; margin-left:auto; }
 .mr-link-btn:hover { background:#FFE0EA; }
+.mr-del-btn  { font-size:11px; font-weight:700; color:#E2547F; padding:2px 8px; border:1.5px solid #FFBDD0; border-radius:20px; background:#FFF0F4; white-space:nowrap; cursor:pointer; }
+.mr-del-btn:hover  { background:#E2547F; color:#fff; border-color:#E2547F; }
 .mr-expand   { flex-shrink:0; font-size:18px; color:#B07A45; transition:transform .2s; line-height:1; padding:4px 2px; margin-top:2px; }
 
 /* ── Meta calendar panel ────────────────────────── */
@@ -160,6 +162,21 @@ function showToast(msg) {
   t.textContent = msg;
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 2800);
+}
+
+// ── Delete meta ───────────────────────────────────────────────────
+async function deleteMeta(id, rowEl) {
+  const csrf = document.querySelector('meta[name="csrf-token"]').content;
+  const r = await fetch(`/api/metas/${id}`, {
+    method: 'DELETE',
+    headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': csrf },
+  });
+  if (r.ok) {
+    rowEl.style.transition = 'opacity .3s,transform .3s';
+    rowEl.style.opacity = '0';
+    rowEl.style.transform = 'translateX(20px)';
+    setTimeout(() => rowEl.remove(), 300);
+  }
 }
 
 // ── Load data ─────────────────────────────────────────────────────
@@ -563,6 +580,7 @@ function renderCrianca(c, delay) {
             <span class="mr-tipo-badge" style="background:${isSem?'#FF8FB1':'#C084FC'};">${isSem?'Semanal':'Mensal'}</span>
             <span class="mr-total">✅ ${m.registros.length} total</span>
             <a class="mr-link-btn" href="/crianca/${c.id}/meta/${m.id}">↗ Ver</a>
+            <button class="mr-del-btn" data-meta-id="${m.id}" data-meta-desc="${m.descricao.replace(/"/g,'&quot;')}">🗑️</button>
           </div>
         </div>
         <div class="mr-expand" style="transform:rotate(-90deg);">▾</div>`;
@@ -576,6 +594,13 @@ function renderCrianca(c, delay) {
 
       // Stop link from toggling calendar
       rowTop.querySelector('.mr-link-btn').addEventListener('click', e => e.stopPropagation());
+
+      rowTop.querySelector('.mr-del-btn').addEventListener('click', async e => {
+        e.stopPropagation();
+        const btn = e.currentTarget;
+        if (!confirm(`Deletar a meta "${btn.dataset.metaDesc}"?\nEsta ação não pode ser desfeita.`)) return;
+        await deleteMeta(btn.dataset.metaId, row);
+      });
 
       rowTop.addEventListener('click', () => {
         const isOpen = calPanel.classList.toggle('open');

@@ -6,10 +6,13 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable(['crianca_id', 'descricao', 'metas', 'data_inicio', 'data_fim', 'tipo', 'valor_meta', 'maximo_por_dia', 'bloquear_dias_anteriores'])]
 class CriancaMeta extends Model
 {
+    use SoftDeletes;
+
     protected function casts(): array
     {
         return [

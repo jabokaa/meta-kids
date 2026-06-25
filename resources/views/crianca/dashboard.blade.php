@@ -25,8 +25,10 @@
   .metas-titulo  { font-family:'Baloo 2',sans-serif; font-weight:700; font-size:20px; color:#5B4630; }
   .metas-badge   { font-size:13px; font-weight:600; color:#C7A77C; background:#FFF8F0; padding:5px 12px; border-radius:20px; border:2px solid #F0E2C8; }
 
-  .meta-card     { display:flex; align-items:flex-start; gap:14px; padding:16px 18px; border-radius:20px; background:#fff; margin-bottom:14px; box-shadow:0 4px 18px rgba(0,0,0,.08); animation:fadeIn .22s ease both; transition:transform .18s ease, box-shadow .18s ease; cursor:pointer; text-decoration:none; color:inherit; border-left:6px solid #F0E2C8; }
+  .meta-card     { display:flex; align-items:flex-start; gap:14px; padding:16px 18px; border-radius:20px; background:#fff; margin-bottom:14px; box-shadow:0 4px 18px rgba(0,0,0,.08); animation:fadeIn .22s ease both; transition:transform .18s ease, box-shadow .18s ease; cursor:pointer; text-decoration:none; color:inherit; border-left:6px solid #F0E2C8; position:relative; }
   .meta-card:hover { transform:translateY(-3px); box-shadow:0 8px 28px rgba(0,0,0,.14); }
+  .meta-del-btn  { position:absolute; top:10px; right:12px; width:30px; height:30px; border-radius:10px; border:1.5px solid #FFBDD0; background:#FFF0F4; color:#E2547F; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .15s; z-index:2; }
+  .meta-del-btn:hover { background:#E2547F; color:#fff; border-color:#E2547F; }
   .meta-icon     { width:44px; height:44px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
   .meta-desc     { font-family:'Baloo 2',sans-serif; font-weight:700; font-size:17px; color:#3D2B1A; margin-bottom:4px; line-height:1.2; }
   .meta-tag      { display:inline-block; font-size:12px; font-weight:600; padding:2px 10px; border-radius:20px; margin-bottom:10px; }
@@ -246,11 +248,22 @@ function renderMetas(metas, crianca) {
     card.style.borderLeftColor = cor;
     card.style.animationDelay  = `${i * 0.06}s`;
 
+    const delBtn = document.createElement('button');
+    delBtn.className = 'meta-del-btn';
+    delBtn.title = 'Deletar meta';
+    delBtn.innerHTML = '🗑️';
+    delBtn.addEventListener('click', async e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!confirm(`Deletar a meta "${m.descricao}"?\nEsta ação não pode ser desfeita.`)) return;
+      await deleteMeta(m.id, card);
+    });
+
     card.innerHTML = `
       <div class="meta-icon" style="background:${est.soft};box-shadow:inset 0 0 0 2px ${est.color};">
         ${isSemanal ? '📅' : '🗓️'}
       </div>
-      <div style="flex:1;min-width:0;">
+      <div style="flex:1;min-width:0;padding-right:28px;">
         <div class="meta-desc">${m.descricao}</div>
         <div>
           <span class="meta-tag" style="color:${cor};background:${cor}18;border:1.5px solid ${cor};">${m.metas}</span>
@@ -274,8 +287,31 @@ function renderMetas(metas, crianca) {
         </div>` : ''}
       </div>`;
 
+    card.appendChild(delBtn);
+
     list.appendChild(card);
   });
+}
+
+async function deleteMeta(id, cardEl) {
+  const csrf = document.querySelector('meta[name="csrf-token"]').content;
+  const r = await fetch(`/api/metas/${id}`, {
+    method: 'DELETE',
+    headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': csrf },
+  });
+  if (r.ok) {
+    cardEl.style.transition = 'opacity .3s,transform .3s';
+    cardEl.style.opacity = '0';
+    cardEl.style.transform = 'scale(.92)';
+    setTimeout(() => {
+      cardEl.remove();
+      const list = document.getElementById('metas-list');
+      const badge = document.getElementById('metas-badge');
+      const count = list.querySelectorAll('.meta-card').length;
+      badge.textContent = `${count} meta${count === 1 ? '' : 's'}`;
+      if (count === 0) document.getElementById('empty-metas').style.display = 'block';
+    }, 300);
+  }
 }
 
 load();
