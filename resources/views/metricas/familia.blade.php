@@ -540,8 +540,7 @@ function renderCrianca(c, delay) {
         <div class="fc-concluidas" title="${conclSemanal} semanal · ${conclMensal} mensal concluído${(conclSemanal+conclMensal)!==1?'s':''}">
           <span class="fc-stars-sem" title="${conclSemanal} semanal${conclSemanal!==1?'is':''}">${starsSemanal}</span>
           <span class="fc-stars-sep">·</span>
-          <span class="fc-stars-men" title="${conclMensal} mensal${
-          !==1?'is':''}">${starsMensal}</span>
+          <span class="fc-stars-men" title="${conclMensal} mensal${conclMensal!==1?'is':''}">${starsMensal}</span>
         </div>
       </div>
       <div class="fc-mood-geral">
