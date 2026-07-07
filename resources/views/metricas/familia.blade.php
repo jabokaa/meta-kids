@@ -21,6 +21,11 @@
 .fc-avatar img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
 .fc-nome     { font-family:'Baloo 2',sans-serif; font-weight:700; font-size:20px; color:#3D2B1A; margin:0 0 2px; }
 .fc-media    { font-size:13px; font-weight:600; color:#8A6A45; }
+.fc-andamento  { font-size:12px; font-weight:600; color:#8A6A45; margin-top:3px; }
+.fc-concluidas { font-size:15px; letter-spacing:1px; line-height:1.4; margin-top:2px; min-height:18px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.fc-stars-sem  { letter-spacing:1px; }
+.fc-stars-men  { letter-spacing:1px; }
+.fc-stars-sep  { color:#C7A77C; font-size:12px; font-weight:700; }
 .fc-mood-geral { margin-left:auto; text-align:center; }
 .fc-mood-emoji { font-size:42px; line-height:1; display:block; }
 .fc-mood-lbl   { font-size:10px; font-weight:700; margin-top:2px; }
@@ -116,6 +121,9 @@
   <div style="position:fixed;bottom:-60px;right:-40px;width:220px;height:220px;border-radius:50%;background:#FFC9DD;opacity:.4;pointer-events:none;z-index:0;"></div>
   <div style="position:fixed;top:40%;left:4%;font-size:52px;animation:floaty 8s ease-in-out infinite;pointer-events:none;z-index:0;">🏆</div>
   <div style="position:fixed;top:12%;right:6%;font-size:44px;animation:floaty 11s ease-in-out infinite;pointer-events:none;z-index:0;">🌟</div>
+  <div style="position:fixed;top:65%;left:3%;font-size:42px;animation:floaty 10s ease-in-out infinite 1s;pointer-events:none;z-index:0;">🦆</div>
+  <div style="position:fixed;top:25%;right:4%;font-size:44px;animation:floaty 12s ease-in-out infinite 2s;pointer-events:none;z-index:0;">🦫</div>
+  <div style="position:fixed;top:50%;right:5%;font-size:36px;animation:floaty 9s ease-in-out infinite .5s;pointer-events:none;z-index:0;">🐁</div>
 @endsection
 
 @section('content')
@@ -490,9 +498,24 @@ function renderCrianca(c, delay) {
   const est = ESTILOS[c.estilo] || ESTILOS[1];
 
   let sumPct = 0, countMetas = c.metas.length;
-  c.metas.forEach(m => { sumPct += calcPeriodoPct(m).pct; });
+  let totalAndamento = 0, conclSemanal = 0, conclMensal = 0;
+  c.metas.forEach(m => {
+    sumPct += calcPeriodoPct(m).pct;
+    const periodos = m.periodos || [];
+    totalAndamento += periodos.length;
+    const concluidas = periodos.filter(p => p.concluida).length;
+    if (m.tipo === 'mensal') conclMensal  += concluidas;
+    else                     conclSemanal += concluidas;
+  });
   const mediaPct = countMetas ? Math.round(sumPct / countMetas) : 0;
   const mood     = moodOf(mediaPct);
+
+  function makeStars(count, emoji, max) {
+    if (count <= 0) return '–';
+    return emoji.repeat(Math.min(count, max)) + (count > max ? ` +${count - max}` : '');
+  }
+  const starsSemanal = makeStars(conclSemanal, '⭐', 12);
+  const starsMensal  = makeStars(conclMensal,  '🌟', 12);
 
   const card = document.createElement('div');
   card.className = 'fc-card';
@@ -514,6 +537,12 @@ function renderCrianca(c, delay) {
       <div class="fc-nav-crianca" style="cursor:pointer;flex:1;">
         <div class="fc-nome">${c.nome} ${idadeStr}</div>
         <div class="fc-media" style="color:${mood.cor};">Média ${mediaPct}% ${mood.lbl}</div>
+        <div class="fc-concluidas" title="${conclSemanal} semanal · ${conclMensal} mensal concluído${(conclSemanal+conclMensal)!==1?'s':''}">
+          <span class="fc-stars-sem" title="${conclSemanal} semanal${conclSemanal!==1?'is':''}">${starsSemanal}</span>
+          <span class="fc-stars-sep">·</span>
+          <span class="fc-stars-men" title="${conclMensal} mensal${
+          !==1?'is':''}">${starsMensal}</span>
+        </div>
       </div>
       <div class="fc-mood-geral">
         <span class="fc-mood-emoji">${mood.emoji}</span>

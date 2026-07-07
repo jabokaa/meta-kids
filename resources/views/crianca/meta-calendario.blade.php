@@ -106,6 +106,11 @@
   <div style="position:fixed;top:30px;left:-50px;width:160px;height:160px;border-radius:50%;background:#FFC9DD;opacity:.4;pointer-events:none;z-index:0;animation:floaty 8s ease-in-out infinite;"></div>
   <div style="position:fixed;bottom:-50px;right:-40px;width:200px;height:200px;border-radius:50%;background:#BDE9C9;opacity:.35;pointer-events:none;z-index:0;"></div>
   <div style="position:fixed;top:45%;right:4%;font-size:48px;animation:floaty 9s ease-in-out infinite;pointer-events:none;z-index:0;">🌟</div>
+  <div style="position:fixed;top:15%;left:3%;font-size:40px;animation:floaty 7s ease-in-out infinite 1s;pointer-events:none;z-index:0;">🦄</div>
+  <div style="position:fixed;top:70%;left:2%;font-size:34px;animation:floaty 11s ease-in-out infinite 2s;pointer-events:none;z-index:0;">🌈</div>
+  <div style="position:fixed;bottom:160px;right:3%;font-size:32px;animation:floaty 8s ease-in-out infinite 3s;pointer-events:none;z-index:0;">🦋</div>
+  <div style="position:fixed;top:80%;right:6%;font-size:28px;animation:floaty 10s ease-in-out infinite .5s;pointer-events:none;z-index:0;">💫</div>
+  <div style="position:fixed;top:55%;left:1%;font-size:42px;animation:floaty 12s ease-in-out infinite 1.5s;pointer-events:none;z-index:0;">🦫</div>
 @endsection
 
 @section('content')
@@ -162,7 +167,7 @@
 <script>
 const CRIANCA_ID = {{ $criancaId }};
 const META_ID    = {{ $metaId }};
-const ICONES     = ['⭐','🌟','🏆','🎯','💪','✅','🔥','🎉'];
+const ICONES     = ['🦄','⭐','🌟','🏆','🎯','💪','✅','🔥','🎉','🌈','🚀','🦋','💎','🍭','🎨','🐉','🧸','🌺','🏅','💫','🦫','🦆','🐁'];
 const MESES      = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 let viewMode   = 'week';
